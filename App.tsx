@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { User, Course, Sacco, BusinessLoan, Partnership, ForumPost, Message } from './types';
@@ -854,8 +855,11 @@ const AdminPanel = () => {
 // --- App Provider & Main Layout ---
 
 const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Theme Init: Check system preference
+    // Theme Init: Check localStorage then system preference
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+        const saved = localStorage.getItem('ks_theme') as 'light' | 'dark' | null;
+        if (saved) return saved;
+        
         if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
             return 'dark';
         }
@@ -869,6 +873,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     // Apply Theme
     useEffect(() => {
+        localStorage.setItem('ks_theme', theme);
         if (theme === 'dark') document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
     }, [theme]);
