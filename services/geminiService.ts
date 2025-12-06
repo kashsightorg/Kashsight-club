@@ -1,9 +1,20 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization to prevent runtime crash if process.env is malformed at module load time
+let aiClient: GoogleGenAI | null = null;
+
+const getAI = () => {
+    if (!aiClient) {
+        // Safe fallback to empty string to ensure constructor doesn't throw synchronously during init
+        const apiKey = process.env.API_KEY || '';
+        aiClient = new GoogleGenAI({ apiKey });
+    }
+    return aiClient;
+}
 
 export const getBusinessAdvice = async (history: string, query: string): Promise<string> => {
     try {
+        const ai = getAI();
         const model = 'gemini-2.5-flash';
         const prompt = `
           You are "Mwalimu AI", a wise and practical business coach for the Kenyan 'Jua Kali' (informal) sector.

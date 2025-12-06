@@ -876,6 +876,14 @@ const App = () => {
 
     // Initial Data Load
     useEffect(() => {
+        // Safety timeout in case Firebase is blocked or slow
+        const timeout = setTimeout(() => {
+            if(loading) {
+                console.warn("Data load timed out, forcing render");
+                setLoading(false);
+            }
+        }, 5000);
+
         const unsubscribe = subscribeToData((data) => {
              setUsers(data.users || []);
              setCourses(data.courses || []);
@@ -886,7 +894,10 @@ const App = () => {
              setMessages(data.messages || []);
              setLoading(false);
         });
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            clearTimeout(timeout);
+        };
     }, []);
 
     // Auth Check on Load
