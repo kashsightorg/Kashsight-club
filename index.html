@@ -6,7 +6,10 @@
     <title>KashSight - P2P Lending</title>
     <script>
       // Polyfill for process.env to prevent "process is not defined" crash in browser
-      window.process = window.process || { env: { API_KEY: '' } };
+      // This is essential for preventing white screens on static deployments like GitHub Pages/Vercel
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      window.process.env.API_KEY = window.process.env.API_KEY || '';
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -50,6 +53,7 @@
 </head>
   <body class="bg-white text-gray-900">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <!-- Changed to relative path to support subdirectory deployment on GitHub Pages -->
+    <script type="module" src="./index.tsx"></script>
   </body>
 </html>
