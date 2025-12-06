@@ -1,4 +1,5 @@
 
+
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, set, onValue, update, push, child } from 'firebase/database';
 import { User, Course, Sacco, BusinessLoan, Partnership, ForumPost, Message } from "../types";
@@ -49,7 +50,13 @@ export const subscribeToData = (callback: (data: any) => void) => {
         callback(parsedData);
     } else {
         // Initialize DB if empty
-        set(ref(db, 'users/u1'), MOCK_USERS[0]);
+        console.log("Database empty, seeding initial data...");
+        const initialData = {
+            users: { 'u1': MOCK_USERS[0] }
+        };
+        set(ref(db, '/'), initialData);
+        // We do NOT wait for the set promise here to prevent blocking, 
+        // the onValue listener will trigger again immediately with the new data.
     }
   });
 };
@@ -82,7 +89,7 @@ export const AuthService = {
         }
         return user;
     },
-    register: async (username: string, name: string, email: string, password: string, mpesa: string, whatsapp: string, role: 'LEARNER' | 'COACH'): Promise<User> => {
+    register: async (username: string, name: string, email: string, password: string, mpesa: string, whatsapp: string, role: 'LEARNER' | 'COACH' | 'ADMIN'): Promise<User> => {
         const userId = 'u' + Date.now();
         const newUser: User = {
             id: userId,

@@ -1,8 +1,6 @@
-
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.API_KEY || ''; 
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getBusinessAdvice = async (history: string, query: string): Promise<string> => {
     try {

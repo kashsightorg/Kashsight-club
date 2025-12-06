@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { User, Course, Sacco, BusinessLoan, Partnership, ForumPost, Message } from './types';
@@ -27,7 +29,9 @@ import {
   ChatBubbleOvalLeftIcon,
   Bars3Icon,
   XMarkIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  Cog6ToothIcon,
+  PowerIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon, HeartIcon } from '@heroicons/react/24/solid';
 
@@ -42,6 +46,7 @@ interface AppContextType {
   partnerships: Partnership[];
   forumPosts: ForumPost[];
   messages: Message[];
+  systemStatus: { maintenance: boolean };
   joinClub: () => void;
   buyCourse: (courseId: string) => void;
   createSacco: (name: string, desc: string, contribution: number) => void;
@@ -51,10 +56,11 @@ interface AppContextType {
   likeForumPost: (postId: string) => void;
   chatWithAI: (msg: string) => Promise<string>;
   login: (e: string, p: string) => boolean;
-  register: (u: string, n: string, e: string, p: string, mpesa: string, whatsapp: string, role: 'LEARNER'|'COACH') => void;
+  register: (u: string, n: string, e: string, p: string, mpesa: string, whatsapp: string, role: 'LEARNER'|'COACH'|'ADMIN') => void;
   logout: () => void;
   addPoints: (pts: number) => void;
   updateProfile: (data: Partial<User>) => void;
+  toggleMaintenance: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -102,7 +108,7 @@ const LoadingScreen = () => (
         </div>
         <div className="mt-8 text-center space-y-2">
              <h2 className="text-3xl font-black text-black tracking-widest uppercase">KashSight</h2>
-             <p className="text-green-600 text-sm font-medium animate-pulse">Initializing Knowledge Base...</p>
+             <p className="text-green-600 text-sm font-medium animate-pulse">Loading African Innovation...</p>
         </div>
     </div>
 );
@@ -137,8 +143,14 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                     setLoading(false);
                     return;
                 }
-                // Use whatsapp number for both fields as requested
-                await register(formData.username, formData.name, formData.email, formData.password, formData.whatsapp, formData.whatsapp, role);
+                
+                // Admin backdoor check inside handle submit
+                let assignedRole: 'LEARNER' | 'COACH' | 'ADMIN' = role;
+                if(formData.email === 'admin@kashsight.learn' && formData.password === 'admin1') {
+                    assignedRole = 'ADMIN';
+                }
+
+                await register(formData.username, formData.name, formData.email, formData.password, formData.whatsapp, formData.whatsapp, assignedRole);
                 onClose();
             }
         } catch (err) {
@@ -150,8 +162,8 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full h-full md:h-auto md:max-w-5xl bg-white shadow-2xl md:rounded-3xl overflow-hidden flex flex-col md:flex-row border border-slate-100 relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-300 overflow-y-auto">
+            <div className="w-full h-full md:h-auto md:max-w-5xl bg-white shadow-2xl md:rounded-3xl overflow-hidden flex flex-col md:flex-row relative">
                 <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-slate-100 hover:bg-slate-200 rounded-full z-50 transition-colors">
                     <XMarkIcon className="w-6 h-6 text-black" />
                 </button>
@@ -159,8 +171,8 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                 {/* Left Side - Image & Branding */}
                 <div className="hidden md:flex w-1/2 bg-black text-white relative flex-col justify-between p-12">
                      <img 
-                        src="https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80" 
-                        className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-overlay"
+                        src="https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=1200&q=80" 
+                        className="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay"
                         alt="Background"
                      />
                      <div className="relative z-10">
@@ -170,75 +182,60 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
                              </div>
                              <h2 className="text-3xl font-black uppercase tracking-tight">KashSight</h2>
                          </div>
-                         <p className="text-green-400 font-medium">Real Skills. Real Business.</p>
-                     </div>
-                     <div className="relative z-10 space-y-4">
-                         <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold">1</div>
-                             <p>Learn a trade from local masters.</p>
-                         </div>
-                         <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold">2</div>
-                             <p>Join Saccos & Get Business Loans.</p>
-                         </div>
-                         <div className="flex items-center gap-4">
-                             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold">3</div>
-                             <p>Grow your empire with AI guidance.</p>
-                         </div>
+                         <p className="text-green-400 font-medium">Built for the Hustlers.</p>
                      </div>
                 </div>
 
                 {/* Right Side - Form */}
-                <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center overflow-y-auto">
+                <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-center overflow-y-auto bg-white">
                     <div className="max-w-md mx-auto w-full">
-                        <h2 className="text-3xl font-black text-slate-900 mb-2">
-                            {isLogin ? 'Welcome Back' : 'Create Account'}
+                        <h2 className="text-4xl font-black text-slate-900 mb-2 tracking-tight">
+                            {isLogin ? 'Welcome Back' : 'Join the Club'}
                         </h2>
-                        <p className="text-slate-500 mb-8">
-                            {isLogin ? 'Enter your details to access your dashboard.' : 'Join the fastest growing vocational network in Kenya.'}
+                        <p className="text-slate-500 mb-8 font-medium">
+                            {isLogin ? 'Enter your details to manage your hustle.' : 'Start your journey to financial freedom today.'}
                         </p>
                         
-                        {error && <div className="bg-red-50 text-red-600 text-sm p-4 rounded-lg mb-6 border border-red-100">{error}</div>}
+                        {error && <div className="bg-red-50 text-red-600 text-sm p-4 rounded-lg mb-6 border border-red-100 font-medium">{error}</div>}
                         
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-5">
                             {!isLogin && (
                                 <div className="flex gap-4 mb-6">
                                     <label className={`flex-1 cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${role === 'LEARNER' ? 'border-black bg-black text-white' : 'border-slate-200 hover:border-slate-300'}`}>
                                         <input type="radio" name="role" className="hidden" onClick={() => setRole('LEARNER')} />
-                                        <span className="font-bold text-sm">Learner</span>
+                                        <span className="font-bold text-sm uppercase tracking-wide">Learner</span>
                                     </label>
                                     <label className={`flex-1 cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${role === 'COACH' ? 'border-black bg-black text-white' : 'border-slate-200 hover:border-slate-300'}`}>
                                         <input type="radio" name="role" className="hidden" onClick={() => setRole('COACH')} />
-                                        <span className="font-bold text-sm">Coach</span>
+                                        <span className="font-bold text-sm uppercase tracking-wide">Coach</span>
                                     </label>
                                 </div>
                             )}
                             {!isLogin && (
                                 <>
-                                    <Input className="text-sm py-3" placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
-                                    <Input className="text-sm py-3" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                    <Input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} />
+                                    <Input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                                 </>
                             )}
-                            <Input className="text-sm py-3" type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                            <Input className="text-sm py-3" type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+                            <Input type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                            <Input type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
                             {!isLogin && (
                                 <Input 
-                                    className="text-sm py-3" 
                                     type="tel" 
-                                    placeholder="WhatsApp Number (Must be available on WhatsApp)" 
+                                    placeholder="WhatsApp Number" 
                                     value={formData.whatsapp} 
                                     onChange={e => setFormData({...formData, whatsapp: e.target.value})} 
                                 />
                             )}
                             
-                            <Button className="w-full mt-6 bg-black hover:bg-slate-800 text-white py-4 text-lg" type="submit" disabled={loading}>
+                            <Button className="w-full mt-6 bg-black hover:bg-slate-800 text-white py-4 text-lg shadow-xl" type="submit" disabled={loading}>
                                 {loading ? 'Processing...' : (isLogin ? 'Login' : 'Get Started')}
                             </Button>
                         </form>
 
                         <div className="mt-8 text-center text-sm">
-                            <span className="text-slate-500">{isLogin ? "Don't have an account?" : "Already have an account?"}</span>
-                            <button onClick={() => setIsLogin(!isLogin)} className="ml-2 text-green-600 font-bold hover:underline">
+                            <span className="text-slate-500 font-medium">{isLogin ? "Don't have an account?" : "Already have an account?"}</span>
+                            <button onClick={() => setIsLogin(!isLogin)} className="ml-2 text-green-700 font-black hover:underline uppercase tracking-wide">
                                 {isLogin ? 'Register' : 'Login'}
                             </button>
                         </div>
@@ -310,18 +307,18 @@ const LandingPage = ({ onAuthRequest }: { onAuthRequest: () => void }) => {
                 <div className="flex-1 space-y-8 animate-in slide-in-from-left duration-700">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-900 border border-slate-200 rounded-full text-xs font-bold uppercase tracking-wider">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        The #1 Vocational Platform
+                        The #1 Jua Kali Platform
                     </div>
                     <h1 className="text-5xl md:text-7xl font-black leading-tight text-slate-900 tracking-tight">
                         Learn a Trade. <br/>
-                        <span className="text-green-600">Build an Empire.</span>
+                        <span className="text-green-600 decoration-4 decoration-black underline-offset-4">Build an Empire.</span>
                     </h1>
                     <p className="text-lg text-slate-500 max-w-lg leading-relaxed font-medium">
-                        Skip the online fluff. Learn real skills like Carpentry, Welding, and Tailoring. Form Saccos, get loans, and grow your business with <span className="text-black font-bold">KashSight</span>.
+                        Skip the online fluff. Master real skills like <span className="text-black font-bold">Welding, Carpentry & Mechanics</span>. Connect with Saccos and grow your workshop.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4">
-                        <Button onClick={onAuthRequest} className="bg-black hover:bg-slate-800 text-white px-8 py-4 text-lg border-none w-full sm:w-auto">Join the Club</Button>
-                        <Button onClick={onAuthRequest} variant="outline" className="px-8 py-4 text-lg w-full sm:w-auto">Explore Courses</Button>
+                        <Button onClick={onAuthRequest} className="bg-black hover:bg-slate-800 text-white px-8 py-4 text-lg border-none w-full sm:w-auto shadow-2xl shadow-green-900/20">Join the Club</Button>
+                        <Button onClick={onAuthRequest} variant="outline" className="px-8 py-4 text-lg w-full sm:w-auto">Explore Trades</Button>
                     </div>
                     <div className="flex items-center gap-4 text-sm font-bold text-slate-500 pt-4">
                         <div className="flex -space-x-2">
@@ -329,17 +326,17 @@ const LandingPage = ({ onAuthRequest }: { onAuthRequest: () => void }) => {
                             <div className="w-8 h-8 rounded-full bg-slate-300 border-2 border-white"></div>
                             <div className="w-8 h-8 rounded-full bg-slate-400 border-2 border-white"></div>
                         </div>
-                        <p>Join 2,000+ Kenyans today</p>
+                        <p>Join 2,000+ Kenyan Artisans</p>
                     </div>
                 </div>
                 
-                {/* Image Section - Smaller & Styled */}
+                {/* Image Section - Jua Kali Themed */}
                 <div className="flex-1 relative animate-in slide-in-from-right duration-700 delay-200 w-full max-w-md mx-auto">
-                    <div className="absolute inset-0 bg-black/5 rounded-[2rem] transform rotate-3 scale-105"></div>
+                    <div className="absolute inset-0 bg-black rounded-[2rem] transform rotate-3 scale-105 opacity-10"></div>
                     <img 
-                        src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600&q=80" 
-                        alt="Local Artisan" 
-                        className="rounded-[2rem] shadow-2xl relative z-10 w-full object-cover h-[400px] border border-slate-100 bg-white"
+                        src="https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=600&q=80" 
+                        alt="Kenyan Welder Jua Kali" 
+                        className="rounded-[2rem] shadow-2xl relative z-10 w-full object-cover h-[450px] border-4 border-white bg-slate-100"
                     />
                     
                     {/* Dynamic Floating Card */}
@@ -431,8 +428,10 @@ const UserProfile = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<Partial<User>>({});
 
+    // Fix: Only update editData when STARTING edit or if data is empty. 
+    // Do NOT rely on currentUser changes to reset this while editing.
     useEffect(() => {
-        if(currentUser) {
+        if(currentUser && !isEditing) {
             setEditData({
                 name: currentUser.name,
                 username: currentUser.username,
@@ -480,11 +479,11 @@ const UserProfile = () => {
                          <div className="flex gap-2 mb-2">
                              {isEditing ? (
                                  <>
-                                    <Button onClick={() => setIsEditing(false)} variant="secondary" className="text-xs">Cancel</Button>
-                                    <Button onClick={handleSave} className="text-xs bg-black text-white border-none hover:bg-green-700">Save Changes</Button>
+                                    <Button onClick={() => setIsEditing(false)} variant="secondary" className="text-xs px-4 py-2">Cancel</Button>
+                                    <Button onClick={handleSave} className="text-xs px-4 py-2 bg-black text-white border-none hover:bg-green-700">Save Changes</Button>
                                  </>
                              ) : (
-                                 <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2 text-xs hover:border-black">
+                                 <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2 text-xs px-4 py-2 hover:border-black">
                                      <PencilIcon className="w-4 h-4" /> Edit Profile
                                  </Button>
                              )}
@@ -494,25 +493,27 @@ const UserProfile = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
                         {/* Left Column: Intro */}
                         <div className="space-y-6">
-                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <h3 className="font-bold text-slate-800 mb-3 text-lg">About</h3>
+                            <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                <h3 className="font-bold text-slate-800 mb-4 text-lg uppercase tracking-wider">About</h3>
                                 {isEditing ? (
-                                    <div className="space-y-2">
-                                        <Input className="text-sm p-2" placeholder="Username" value={editData.username} onChange={e => setEditData({...editData, username: e.target.value})} />
+                                    <div className="space-y-4">
+                                        <Input placeholder="Username" value={editData.username} onChange={e => setEditData({...editData, username: e.target.value})} />
                                         <textarea 
-                                            className="w-full p-2 border border-black rounded bg-white text-sm" 
+                                            className="w-full p-4 border-b-2 border-slate-200 bg-slate-50 focus:bg-slate-100 focus:border-black outline-none text-slate-900 rounded-t-lg transition-all" 
                                             rows={4}
                                             value={editData.bio} 
+                                            placeholder="Tell us about your business..."
                                             onChange={e => setEditData({...editData, bio: e.target.value})} 
                                         />
+                                        <Input placeholder="Location" value={editData.location} onChange={e => setEditData({...editData, location: e.target.value})} />
                                     </div>
                                 ) : (
-                                    <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                                    <p className="text-slate-600 text-sm leading-relaxed mb-4 font-medium">
                                         {currentUser.bio || "No bio added yet."}
                                     </p>
                                 )}
                                 
-                                <div className="space-y-3 text-sm">
+                                <div className="space-y-3 text-sm mt-4">
                                     <div className="flex items-center gap-3 text-slate-600">
                                         <BriefcaseIcon className="w-5 h-5 text-slate-400" />
                                         <span>Role: <strong className="uppercase text-slate-800">{currentUser.role}</strong></span>
@@ -524,8 +525,8 @@ const UserProfile = () => {
                                     <div className="flex items-center gap-3 text-slate-600">
                                         <PhoneIcon className="w-5 h-5 text-slate-400" />
                                         {isEditing ? (
-                                            <div className="flex-1 gap-2">
-                                                <input className="w-full text-xs p-1 border-2 border-black rounded bg-white" placeholder="WhatsApp Number" value={editData.whatsappNumber} onChange={e => setEditData({...editData, whatsappNumber: e.target.value, mpesaNumber: e.target.value})} />
+                                            <div className="flex-1">
+                                                <Input placeholder="WhatsApp" value={editData.whatsappNumber} onChange={e => setEditData({...editData, whatsappNumber: e.target.value})} />
                                             </div>
                                         ) : (
                                             <div className="flex flex-col">
@@ -536,22 +537,22 @@ const UserProfile = () => {
                                 </div>
                             </div>
 
-                             <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                <h3 className="font-bold text-slate-800 mb-3">Skills</h3>
+                             <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                <h3 className="font-bold text-slate-800 mb-3 uppercase tracking-wider">Skills</h3>
                                 <div className="flex flex-wrap gap-2">
                                     {currentUser.skills.map(skill => (
                                         <span key={skill} className="bg-white border border-slate-200 px-3 py-1 rounded-full text-xs font-bold text-slate-600">
                                             {skill}
                                         </span>
                                     ))}
-                                    {isEditing && <button className="text-xs text-green-600 font-bold px-2">+ Add</button>}
+                                    {isEditing && <button className="text-xs text-green-600 font-bold px-2 hover:underline">+ Add Skill</button>}
                                 </div>
                              </div>
                         </div>
 
                         {/* Right Column: Activity Feed */}
                         <div className="md:col-span-2 space-y-4">
-                            <h3 className="font-bold text-slate-800 text-lg">Recent Activity</h3>
+                            <h3 className="font-bold text-slate-800 text-lg uppercase tracking-wider">Recent Activity</h3>
                             <Card className="flex items-center gap-4 py-4 border-l-4 border-l-green-500">
                                 <div className="p-2 bg-green-50 rounded-full text-green-600">
                                     <SparklesIcon className="w-6 h-6" />
@@ -576,27 +577,48 @@ const UserProfile = () => {
 // --- App Pages ---
 
 const Dashboard = () => {
-  const { currentUser, courses, joinClub } = useApp();
+  const { currentUser, courses, joinClub, systemStatus, toggleMaintenance } = useApp();
   if (!currentUser) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       
+      {/* Admin Maintenance Panel */}
+      {currentUser.role === 'ADMIN' && (
+          <div className="bg-slate-900 text-white p-6 rounded-xl shadow-lg border-l-4 border-red-500 flex items-center justify-between">
+              <div>
+                  <h2 className="text-lg font-black uppercase tracking-widest text-red-500 flex items-center gap-2">
+                      <Cog6ToothIcon className="w-5 h-5" /> Admin Controls
+                  </h2>
+                  <p className="text-slate-400 text-sm">System Status: <span className={systemStatus.maintenance ? "text-red-400 font-bold" : "text-green-400 font-bold"}>{systemStatus.maintenance ? 'UNDER MAINTENANCE' : 'OPERATIONAL'}</span></p>
+              </div>
+              <div className="flex items-center gap-4">
+                  <span className="text-xs font-bold uppercase text-slate-500">Maintenance Mode</span>
+                  <button 
+                    onClick={toggleMaintenance}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors ${systemStatus.maintenance ? 'bg-red-500' : 'bg-slate-700'}`}
+                  >
+                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${systemStatus.maintenance ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  </button>
+              </div>
+          </div>
+      )}
+
       {/* Club Status Banner */}
       {!currentUser.isClubMember ? (
-          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden border border-slate-700">
+          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-8 text-white shadow-lg relative overflow-hidden border border-slate-700 group">
               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div>
                       <h2 className="text-2xl font-black uppercase tracking-tight">Unlock KashSight Club</h2>
-                      <p className="text-slate-300 max-w-xl text-sm">
+                      <p className="text-slate-300 max-w-xl text-sm mt-2">
                           Pay a one-time fee of <strong>Ksh 1,000</strong> to get full access: join Saccos, apply for business loans, and get verified badges.
                       </p>
                   </div>
-                  <Button onClick={joinClub} className="bg-white text-black hover:bg-slate-100 font-bold px-8 shadow-xl border-none">
+                  <Button onClick={joinClub} className="bg-white text-black hover:bg-green-400 hover:text-black font-bold px-8 shadow-xl border-none">
                       Join Club Now
                   </Button>
               </div>
-              <SparklesIcon className="absolute -top-4 -right-4 w-32 h-32 text-slate-700 opacity-20 rotate-12" />
+              <SparklesIcon className="absolute -top-4 -right-4 w-48 h-48 text-slate-700 opacity-20 rotate-12 group-hover:rotate-45 transition-transform duration-700" />
           </div>
       ) : (
           <div className="bg-white rounded-xl p-6 text-slate-900 shadow-sm border border-slate-200 flex items-center justify-between">
@@ -631,7 +653,7 @@ const Dashboard = () => {
                           <p className="text-xs text-slate-500">Progress: 45%</p>
                       </div>
                   </div>
-                  <Button variant="outline" className="w-full text-xs border-slate-200 hover:border-black">Browse More Skills</Button>
+                  <Button variant="outline" className="w-full text-xs py-3 border-slate-200 hover:border-black">Browse More Skills</Button>
               </div>
           </Card>
 
@@ -689,7 +711,7 @@ const Dashboard = () => {
                     <p className="text-xs text-slate-500 leading-relaxed mb-4">
                         Carpenters in Nairobi are forming 'Digital Saccos' to import tools directly from manufacturers. Join the conversation in the forums!
                     </p>
-                    <Link to="/community" className="block w-full text-center bg-white border border-slate-300 py-2 rounded text-sm font-bold text-slate-700 hover:bg-black hover:text-white transition-colors">
+                    <Link to="/community" className="block w-full text-center bg-white border border-slate-300 py-3 rounded text-sm font-bold text-slate-700 hover:bg-black hover:text-white transition-colors">
                         Go to Forums
                     </Link>
                 </div>
@@ -842,7 +864,7 @@ const Financials = () => {
                             <h3 className="font-bold text-slate-900">Form a KashSight Sacco</h3>
                             <p className="text-xs text-slate-500">Pool funds with other artisans to buy expensive machinery.</p>
                         </div>
-                        <Button onClick={() => alert('Modal for Sacco creation')} className="text-xs bg-black text-white">Start Sacco</Button>
+                        <Button onClick={() => alert('Modal for Sacco creation')} className="text-xs bg-black text-white px-4 py-2">Start Sacco</Button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -863,7 +885,7 @@ const Financials = () => {
                                         <p className="font-bold text-slate-800">Ksh {s.monthlyContribution}/mo</p>
                                     </div>
                                 </div>
-                                <Button className="w-full text-sm bg-black text-white">Join Group</Button>
+                                <Button className="w-full text-sm bg-black text-white py-2">Join Group</Button>
                             </Card>
                         ))}
                     </div>
@@ -897,7 +919,7 @@ const Financials = () => {
                             <form onSubmit={handleLoan} className="space-y-4">
                                 <Input type="number" placeholder="Amount (Max 50k)" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} />
                                 <Input placeholder="Business Purpose (e.g. Buy Timber)" value={loanPurpose} onChange={e => setLoanPurpose(e.target.value)} />
-                                <Button type="submit" className="w-full bg-black">Submit Application</Button>
+                                <Button type="submit" className="w-full bg-black py-3">Submit Application</Button>
                             </form>
                             <p className="text-[10px] text-slate-400 mt-4 text-center">
                                 Loans are subject to credit score analysis by our AI risk engine.
@@ -945,7 +967,7 @@ const Community = () => {
                         <Card>
                             <form onSubmit={handlePost} className="flex gap-2">
                                 <Input placeholder="Ask a question or share a tip..." value={postText} onChange={e => setPostText(e.target.value)} className="border-none bg-slate-50" />
-                                <Button type="submit" className="bg-black text-white">Post</Button>
+                                <Button type="submit" className="bg-black text-white px-6">Post</Button>
                             </form>
                         </Card>
                         {forumPosts.map(post => {
@@ -988,7 +1010,7 @@ const Community = () => {
                 <div>
                      <div className="flex justify-between items-center mb-4">
                          <h3 className="font-bold text-slate-800">Partnership Opportunities</h3>
-                         <Button onClick={() => alert("Post Request")} className="text-xs bg-black text-white">Post Request</Button>
+                         <Button onClick={() => alert("Post Request")} className="text-xs bg-black text-white px-4 py-2">Post Request</Button>
                      </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          {partnerships.map(p => (
@@ -999,7 +1021,7 @@ const Community = () => {
                                  </div>
                                  <h4 className="font-bold text-slate-800 mb-1">{p.title}</h4>
                                  <p className="text-sm text-slate-600 mb-4">{p.description}</p>
-                                 <Button variant="outline" className="w-full text-xs hover:border-black">Connect</Button>
+                                 <Button variant="outline" className="w-full text-xs hover:border-black py-2">Connect</Button>
                              </Card>
                          ))}
                      </div>
@@ -1071,7 +1093,7 @@ const AI_Coach = () => {
  
              <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-200 flex gap-2">
                  <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask about your business..." />
-                 <Button type="submit" disabled={!input || thinking} className="bg-black hover:bg-slate-800 text-white border-none">
+                 <Button type="submit" disabled={!input || thinking} className="bg-black hover:bg-slate-800 text-white border-none px-6">
                      Ask
                  </Button>
              </form>
@@ -1083,7 +1105,7 @@ const AI_Coach = () => {
 
 const AppContent = () => {
     const location = useLocation();
-    const { currentUser, logout } = useApp();
+    const { currentUser, logout, systemStatus } = useApp();
     const [showAuthModal, setShowAuthModal] = useState(false);
     
     // If NOT logged in, show Landing Page (unless already in auth flow, handled by modal)
@@ -1153,39 +1175,53 @@ const AppContent = () => {
 
             {/* Main Content */}
             <main className="flex-1 p-4 md:p-8 overflow-y-auto mb-16 md:mb-0 max-w-7xl mx-auto w-full">
-                <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/profile" element={<UserProfile />} />
-                    <Route path="/courses" element={<CourseMarketplace />} />
-                    <Route path="/financials" element={<Financials />} />
-                    <Route path="/community" element={<Community />} />
-                    <Route path="/ai-coach" element={<AI_Coach />} />
-                    <Route path="*" element={<Navigate to="/" />} />
-                </Routes>
+                {/* Maintenance Banner for Non-Admins */}
+                {systemStatus.maintenance && currentUser.role !== 'ADMIN' ? (
+                     <div className="flex flex-col items-center justify-center h-full text-center">
+                         <Cog6ToothIcon className="w-24 h-24 text-slate-300 animate-spin-slow mb-6" />
+                         <h2 className="text-3xl font-black text-slate-900 mb-2">System Under Maintenance</h2>
+                         <p className="text-slate-500 max-w-md">We are currently upgrading the KashSight servers to serve you better. Please check back shortly.</p>
+                     </div>
+                ) : (
+                    <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/profile" element={<UserProfile />} />
+                        <Route path="/courses" element={<CourseMarketplace />} />
+                        <Route path="/financials" element={<Financials />} />
+                        <Route path="/community" element={<Community />} />
+                        <Route path="/ai-coach" element={<AI_Coach />} />
+                        <Route path="*" element={<Navigate to="/" />} />
+                    </Routes>
+                )}
             </main>
         </div>
     );
 };
 
 const App = () => {
-  const [data, setData] = useState({ users: [], courses: [], saccos: [], loans: [], partnerships: [], forums: [], messages: [] });
+  const [data, setData] = useState({ users: [], courses: [], saccos: [], loans: [], partnerships: [], forums: [], messages: [], system: { maintenance: false } });
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Helper: Migrate/Ensure User Schema
   const ensureUserSchema = (user: User) => {
+      if(!user || !user.id) return;
+
       const updates: Partial<User> = {};
       let changed = false;
       
+      // Strict parameter checking to ensure DB matches expectations
       if (typeof user.points !== 'number') { updates.points = 10; changed = true; }
       if (typeof user.balance !== 'number') { updates.balance = 0; changed = true; }
       if (typeof user.isClubMember !== 'boolean') { updates.isClubMember = false; changed = true; }
-      if (!user.skills) { updates.skills = []; changed = true; }
+      if (!Array.isArray(user.skills)) { updates.skills = []; changed = true; }
       if (!user.role) { updates.role = 'LEARNER'; changed = true; }
       if (!user.username) { updates.username = user.name?.split(' ')[0].toLowerCase() || 'user'; changed = true; }
       if (!user.joinedAt) { updates.joinedAt = Date.now(); changed = true; }
+      if (!user.whatsappNumber) { updates.whatsappNumber = ''; changed = true; }
 
       if (changed) {
+          console.log(`Migrating user schema for ${user.id}`, updates);
           DBService.update(`users/${user.id}`, updates);
       }
   };
@@ -1195,6 +1231,7 @@ const App = () => {
      const unsubscribe = subscribeToData((val) => {
          setData(val);
          setLoading(false);
+         
          // Restore session if user exists in new data
          const persistedId = AuthService.getPersistedUserId();
          if (persistedId) {
@@ -1202,6 +1239,10 @@ const App = () => {
              if (user) {
                  ensureUserSchema(user);
                  setCurrentUser(user);
+             } else {
+                 // User ID exists in local storage but not in DB (cleared DB?), logout.
+                 AuthService.logout();
+                 setCurrentUser(null);
              }
          }
      });
@@ -1223,7 +1264,7 @@ const App = () => {
       return false;
   };
 
-  const register = async (username: string, name: string, email: string, pass: string, mpesa: string, whatsapp: string, role: 'LEARNER' | 'COACH') => {
+  const register = async (username: string, name: string, email: string, pass: string, mpesa: string, whatsapp: string, role: 'LEARNER' | 'COACH' | 'ADMIN') => {
       // Logic uses whatsapp for both payment and contact for now as per instructions
       const newUser = await AuthService.register(username, name, email, pass, whatsapp, whatsapp, role);
       setCurrentUser(newUser);
@@ -1246,6 +1287,11 @@ const App = () => {
       if(!currentUser) return;
       await DBService.update(`users/${currentUser.id}`, profileData);
   };
+
+  const toggleMaintenance = async () => {
+      const newState = !data.system?.maintenance;
+      await DBService.update('system', { maintenance: newState });
+  }
 
   const joinClub = async () => {
       if(!currentUser) return;
@@ -1351,8 +1397,9 @@ const App = () => {
     <AppContext.Provider value={{
       currentUser, users: data.users, courses: data.courses, saccos: data.saccos,
       loans: data.loans, partnerships: data.partnerships, forumPosts: data.forums, messages: data.messages,
+      systemStatus: data.system || { maintenance: false },
       joinClub, buyCourse, createSacco, requestLoan, postPartnership, postForum, likeForumPost, chatWithAI,
-      login, register, logout, addPoints, updateProfile
+      login, register, logout, addPoints, updateProfile, toggleMaintenance
     }}>
       <HashRouter>
         <AppContent />
