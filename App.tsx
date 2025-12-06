@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
 import { User, Course, Sacco, BusinessLoan, Partnership, ForumPost, Message } from './types';
@@ -825,204 +823,145 @@ const AICoachPage = () => {
                  <div ref={bottomRef}></div>
              </div>
              <div className="mt-4 flex gap-2">
-                 <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask about carpentry, tailoring, loans..." onKeyDown={e => e.key === 'Enter' && send()} />
-                 <Button onClick={send} disabled={loading} className="px-6"><SparklesIcon className="w-6 h-6" /></Button>
+                 <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Ask about carpentry, tailoring, loans..." onKeyDown={e => { if(e.key === 'Enter') send(); }} />
+                 <Button onClick={send} className="px-6">Send</Button>
              </div>
         </div>
     );
 };
 
-// Placeholders for other pages to keep file concise but functional
-const CoursesPage = () => <div className="text-center py-20"><h2 className="text-2xl font-bold">Marketplace Coming Soon</h2></div>;
-const FinancialsPage = () => <div className="text-center py-20"><h2 className="text-2xl font-bold">Saccos & Loans Loading...</h2></div>;
-const PartnershipsPage = () => <div className="text-center py-20"><h2 className="text-2xl font-bold">B2B Partners Loading...</h2></div>;
-const CommunityPage = () => <div className="text-center py-20"><h2 className="text-2xl font-bold">Forums Loading...</h2></div>;
-const AdminPanel = () => {
-    const { toggleMaintenance, systemStatus } = useApp();
-    return (
-        <Card>
-            <h2 className="text-2xl font-black mb-6">Admin Control</h2>
-            <div className="flex items-center justify-between p-4 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                 <span className="font-bold">Maintenance Mode</span>
-                 <button onClick={toggleMaintenance} className={`px-4 py-2 rounded-lg font-bold ${systemStatus.maintenance ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}`}>
-                     {systemStatus.maintenance ? 'ON (Blocking Users)' : 'OFF (Normal)'}
-                 </button>
-            </div>
-        </Card>
-    )
-}
+// --- Placeholder Pages ---
+const CoursesPage = () => <div className="p-4"><h1 className="text-2xl font-bold mb-4">Courses</h1><Card>Coming Soon</Card></div>;
+const FinancialsPage = () => <div className="p-4"><h1 className="text-2xl font-bold mb-4">Saccos & Loans</h1><Card>Coming Soon</Card></div>;
+const PartnershipsPage = () => <div className="p-4"><h1 className="text-2xl font-bold mb-4">Partnerships</h1><Card>Coming Soon</Card></div>;
+const CommunityPage = () => <div className="p-4"><h1 className="text-2xl font-bold mb-4">Community Forum</h1><Card>Coming Soon</Card></div>;
+const AdminPanel = () => <div className="p-4"><h1 className="text-2xl font-bold mb-4">Admin Panel</h1><Card>Restricted Access</Card></div>;
 
-// --- App Provider & Main Layout ---
 
-const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Theme Init: Check localStorage then system preference
-    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-        const saved = localStorage.getItem('ks_theme') as 'light' | 'dark' | null;
-        if (saved) return saved;
-        
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark';
+// --- Main App Component ---
+const App = () => {
+    // Theme State - Default strictly to Light, ignore system
+    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+    useEffect(() => {
+        // Only load if explicitly set, otherwise stay default light
+        const savedTheme = localStorage.getItem('kashsight_theme') as 'light' | 'dark' | null;
+        if (savedTheme) {
+            setTheme(savedTheme);
         }
-        return 'light';
-    });
-    
-    const [language, setLanguage] = useState<'en' | 'sw'>('en');
-    const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [systemStatus, setSystemStatus] = useState({ maintenance: false });
-    const [loading, setLoading] = useState(true);
-
-    // Apply Theme
-    useEffect(() => {
-        localStorage.setItem('ks_theme', theme);
-        if (theme === 'dark') document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-    }, [theme]);
-
-    // Data Subscription
-    useEffect(() => {
-        const unsubscribe = subscribeToData((data) => {
-            if (data.maintenance !== undefined) setSystemStatus({ maintenance: data.maintenance });
-            setLoading(false);
-            
-            // Persist Session
-            const storedId = AuthService.getPersistedUserId();
-            if (storedId && !currentUser) {
-                const found = data.users.find((u: User) => u.id === storedId);
-                if (found) {
-                     // Schema Migration: Ensure all fields exist
-                     if (!found.points) found.points = 10;
-                     if (!found.balance) found.balance = 0;
-                     if (!found.skills) found.skills = [];
-                     if (!found.username) found.username = found.email.split('@')[0];
-                     setCurrentUser(found);
-                }
-            } else if (currentUser) {
-                // Update current user if data changes in real-time
-                 const found = data.users.find((u: User) => u.id === currentUser.id);
-                 if (found) setCurrentUser(found);
-            }
-        });
-        return () => unsubscribe(); // Cleanup not strictly necessary for firebase onValue but good practice
-    }, [currentUser]);
-
-    const t = (key: keyof typeof translations['en']) => translations[language][key] || key;
-
-    const login = (e: string, p: string) => {
-        // Needs access to full user list which is in store, simplified here for context
-        // Ideally AuthService.login would return the user object directly, but we need the reactive list from DB
-        // We will trigger a reload or rely on the subscribeToData to catch the local storage change? 
-        // Better: Fetch users inside this function from a ref or just reload the window logic for this MVP
-        // For now, let's use the hook logic. We need the users list available in context or fetch it.
-        // Let's implement a simple direct fetch or pass users to login.
-        // Actually, we can just use the persisted ID logic.
-        // Re-implementing simplified login here:
-        const hash = btoa('salty_' + p);
-        // We need the data from the subscription to check credentials.
-        // For safety in this specific architecture, let's just assume we can find the user if we had the list.
-        // Since we don't have the list in this scope easily without prop drilling, 
-        // let's reload the page to force re-check or use a simpler approach:
-        // PASS.
-        return true; 
-    };
-    
-    // Improved Login Wrapper that actually works with the data flow
-    const performLogin = (email: string, pass: string) => {
-        // We need to access the latest users list. 
-        // Since we are inside the provider, we don't have the list in a var yet unless we store it.
-        // Let's store users in state.
-        return false; // See updated Logic below
-    };
-
-    // We need to hold the users state to perform login checks
-    const [users, setUsers] = useState<User[]>([]);
-    
-    useEffect(() => {
-        subscribeToData((data) => {
-             setUsers(data.users);
-        });
     }, []);
 
-    const handleLogin = (e: string, p: string) => {
-        const user = AuthService.login(users, e, p);
-        if (user) {
-            setCurrentUser(user);
-            return true;
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
         }
+        localStorage.setItem('kashsight_theme', theme);
+    }, [theme]);
+
+    const [language, setLanguage] = useState<'en'|'sw'>('en');
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    
+    // Data States
+    const [users, setUsers] = useState<User[]>([]);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [saccos, setSaccos] = useState<Sacco[]>([]);
+    const [loans, setLoans] = useState<BusinessLoan[]>([]);
+    const [partnerships, setPartnerships] = useState<Partnership[]>([]);
+    const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [systemStatus, setSystemStatus] = useState({ maintenance: false });
+
+    // Initial Data Load
+    useEffect(() => {
+        const unsubscribe = subscribeToData((data) => {
+             setUsers(data.users || []);
+             setCourses(data.courses || []);
+             setSaccos(data.saccos || []);
+             setLoans(data.loans || []);
+             setPartnerships(data.partnerships || []);
+             setForumPosts(data.forums || []);
+             setMessages(data.messages || []);
+             setLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Auth Check on Load
+    useEffect(() => {
+        if (!loading && users.length > 0) {
+            const persistedId = AuthService.getPersistedUserId();
+            if (persistedId) {
+                const user = users.find(u => u.id === persistedId);
+                if (user) setCurrentUser(user);
+            }
+        }
+    }, [loading, users]);
+
+    // Actions
+    const login = (e: string, p: string) => {
+        const user = AuthService.login(users, e, p);
+        if (user) { setCurrentUser(user); return true; }
         return false;
     };
 
-    const handleRegister = async (u: string, n: string, e: string, p: string, m: string, w: string, r: 'LEARNER'|'COACH'|'ADMIN') => {
-        const user = await AuthService.register(u, n, e, p, m, w, r);
-        setCurrentUser(user);
+    const register = async (u: string, n: string, e: string, p: string, mpesa: string, whatsapp: string, role: 'LEARNER'|'COACH'|'ADMIN') => {
+        const newUser = await AuthService.register(u, n, e, p, mpesa, whatsapp, role);
+        // Optimistic update handled by firebase listener
+        setCurrentUser(newUser);
     };
 
-    const handleLogout = () => {
+    const logout = () => {
         AuthService.logout();
         setCurrentUser(null);
     };
 
-    const value = {
-        currentUser,
-        users,
-        courses: [], saccos: [], loans: [], partnerships: [], forumPosts: [], messages: [], // placeholders
-        systemStatus,
-        language, setLanguage,
-        theme, setTheme,
-        t,
-        login: handleLogin,
-        register: handleRegister,
-        logout: handleLogout,
-        deleteAccount: () => { AuthService.logout(); setCurrentUser(null); }, // soft delete for now
-        joinClub: () => DBService.update(`users/${currentUser?.id}`, { isClubMember: true }),
-        verifyPayment: (code: string) => { alert('Verifying ' + code); setTimeout(() => DBService.update(`users/${currentUser?.id}`, { isClubMember: true }), 1500); },
-        buyCourse: () => {},
-        createSacco: () => {},
-        requestLoan: () => {},
-        postPartnership: () => {},
-        postForum: () => {},
-        likeForumPost: () => {},
-        chatWithAI: async (msg: string) => await getBusinessAdvice('', msg),
-        addPoints: () => {},
-        updateProfile: (data: Partial<User>) => DBService.update(`users/${currentUser?.id}`, data),
-        toggleMaintenance: () => DBService.set('maintenance', !systemStatus.maintenance)
+    const t = (key: keyof typeof translations['en']) => {
+        return translations[language][key] || key;
     };
 
+    const chatWithAI = async (msg: string) => {
+        // Simple context builder
+        const history = `User: ${currentUser?.name}, Role: ${currentUser?.role}, Location: ${currentUser?.location}`;
+        return await getBusinessAdvice(history, msg);
+    };
+
+    // Stubs for other actions
+    const joinClub = () => {};
+    const verifyPayment = (code: string) => { alert(`Verifying ${code}... (Demo)`); };
+    const buyCourse = () => {};
+    const createSacco = () => {};
+    const requestLoan = () => {};
+    const postPartnership = () => {};
+    const postForum = () => {};
+    const likeForumPost = () => {};
+    const deleteAccount = () => { logout(); alert('Account deleted (Demo)'); };
+    const addPoints = () => {};
+    const updateProfile = async (data: Partial<User>) => {
+        if(!currentUser) return;
+        await DBService.update(`users/${currentUser.id}`, data);
+    };
+    const toggleMaintenance = () => setSystemStatus(p => ({...p, maintenance: !p.maintenance}));
+
+    if (loading) return <LoadingScreen />;
+
     return (
-        <AppContext.Provider value={value}>
-            {loading ? <LoadingScreen /> : children}
+        <AppContext.Provider value={{
+            currentUser, users, courses, saccos, loans, partnerships, forumPosts, messages, systemStatus,
+            language, theme, setLanguage, setTheme, t,
+            joinClub, verifyPayment, buyCourse, createSacco, requestLoan, postPartnership, postForum, likeForumPost,
+            chatWithAI, login, register, logout, deleteAccount, addPoints, updateProfile, toggleMaintenance
+        }}>
+            <HashRouter>
+                <Routes>
+                    <Route path="/" element={currentUser ? <Navigate to="/dashboard" /> : <LandingPage />} />
+                    <Route path="/dashboard/*" element={currentUser ? <DashboardLayout /> : <Navigate to="/" />} />
+                </Routes>
+            </HashRouter>
         </AppContext.Provider>
     );
 };
-
-// --- 404 Page ---
-const NotFound = () => (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
-        <h1 className="text-9xl font-black">404</h1>
-        <p className="text-xl mb-8">Page not found in the workshop.</p>
-        <Link to="/" className="px-6 py-3 bg-black text-white dark:bg-green-600 dark:text-black rounded-xl font-bold">Return Home</Link>
-    </div>
-);
-
-// --- Main Entry ---
-const App = () => {
-    return (
-        <AppProvider>
-            <HashRouter>
-                <MainRoutes />
-            </HashRouter>
-        </AppProvider>
-    );
-};
-
-const MainRoutes = () => {
-    const { currentUser } = useApp();
-    return (
-        <Routes>
-            <Route path="/" element={!currentUser ? <LandingPage /> : <Navigate to="/dashboard" />} />
-            <Route path="/dashboard/*" element={currentUser ? <DashboardLayout /> : <Navigate to="/" />} />
-            <Route path="*" element={<NotFound />} />
-        </Routes>
-    )
-}
 
 export default App;
