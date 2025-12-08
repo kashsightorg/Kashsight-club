@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { User, Course, Resource, PaymentRequest, Channel, ChatMessage, Notification, CourseModule } from './types';
@@ -40,6 +41,13 @@ import {
   UsersIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
+
+// Extend window for jsPDF
+declare global {
+  interface Window {
+    jspdf: any;
+  }
+}
 
 // --- Localization ---
 const translations = {
@@ -428,13 +436,45 @@ const CoursePlayer = () => {
 const ResourcesPage = () => {
     const { resources, recordDownload, currentUser, notify } = useApp();
 
-    const handleDownload = (r: Resource) => {
-        if(currentUser?.isClubMember || r.price === 0) {
-            recordDownload();
+    const generatePDF = async (title: string, content: string) => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
+        const maxLineWidth = pageWidth - margin * 2;
+
+        doc.setFontSize(22);
+        doc.text(title, margin, 20);
+        
+        doc.setFontSize(12);
+        const splitText = doc.splitTextToSize(content, maxLineWidth);
+        let y = 40;
+        
+        splitText.forEach((line: string) => {
+            if (y > 280) {
+                doc.addPage();
+                y = 20;
+            }
+            doc.text(line, margin, y);
+            y += 7;
+        });
+        
+        doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+    }
+
+    const handleDownload = async (r: Resource) => {
+        if (!currentUser) return;
+        
+        const canDownload = currentUser.isClubMember || !currentUser.lastDownloadTimestamp || (Date.now() - currentUser.lastDownloadTimestamp > 86400000);
+
+        if(canDownload || r.price === 0) {
+            notify("Generating PDF with Mwalimu...", "INFO");
+            const content = await generateResourceContent(r.title, r.type, r.description);
+            generatePDF(r.title, content);
+            await recordDownload();
             notify("Download Started", "SUCCESS");
-            // window.open(r.downloadUrl, '_blank');
         } else {
-            notify("Upgrade to Pro to download", "ERROR");
+            notify("Daily limit reached. Upgrade to Pro for unlimited.", "ERROR");
         }
     };
 
@@ -474,14 +514,41 @@ const CommunityPage = () => {
     const channelMessages = messages.filter(m => m.channelId === activeChannelId); 
 
     const sendMessage = async () => {
-        if(!input.trim()) return;
-        notify("Message sent (Mock)", "INFO");
+        if(!input.trim() || !currentUser) return;
+        
+        const newMessage: ChatMessage = {
+            id: Date.now().toString(),
+            channelId: activeChannelId,
+            userId: currentUser.id,
+            userName: currentUser.name,
+            userAvatar: currentUser.avatar,
+            text: input,
+            timestamp: Date.now()
+        };
+        await DBService.push('messages', newMessage);
         setInput('');
+
+        // Agent Logic
+        if (input.toLowerCase().startsWith('/agent')) {
+            const query = input.replace('/agent', '').trim();
+            const response = await getBusinessAdvice(`Context: User is asking in ${activeChannel?.name}`, query);
+            const botMsg: ChatMessage = {
+                id: Date.now().toString() + '_bot',
+                channelId: activeChannelId,
+                userId: 'mwalimu_bot',
+                userName: 'Mwalimu Agent',
+                userAvatar: 'https://ui-avatars.com/api/?name=MA&background=000&color=fff',
+                text: response,
+                timestamp: Date.now() + 100,
+                isSystem: true
+            };
+            await DBService.push('messages', botMsg);
+        }
     };
 
     return (
         <div className="h-[calc(100vh-8rem)] grid md:grid-cols-4 gap-4 animate-in fade-in">
-            <Card className="md:col-span-1 p-0 overflow-hidden flex flex-col">
+            <Card className="md:col-span-1 p-0 overflow-hidden flex flex-col hidden md:flex">
                 <div className="p-4 border-b border-slate-100 bg-slate-50">
                     <h3 className="font-black text-lg">Channels</h3>
                 </div>
@@ -498,7 +565,7 @@ const CommunityPage = () => {
                 </div>
             </Card>
             
-            <Card className="md:col-span-3 p-0 flex flex-col overflow-hidden">
+            <Card className="md:col-span-3 p-0 flex flex-col overflow-hidden col-span-4">
                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
                      <div>
                          <h3 className="font-black text-lg"># {activeChannel?.name}</h3>
@@ -514,23 +581,28 @@ const CommunityPage = () => {
                              <p>No messages yet. Start the conversation!</p>
                          </div>
                      )}
-                     <div className="flex gap-3">
-                         <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs">AI</div>
-                         <div>
-                             <div className="flex items-center gap-2">
-                                 <span className="font-bold text-sm">System Bot</span>
-                                 <span className="text-[10px] text-slate-400">Today</span>
+                     
+                     {channelMessages.map(msg => {
+                         const isMe = msg.userId === currentUser?.id;
+                         return (
+                             <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                 <InitialsAvatar name={msg.userName} url={msg.userAvatar} className="w-8 h-8 self-end" />
+                                 <div className={`max-w-[80%]`}>
+                                     <div className={`flex items-center gap-2 mb-1 ${isMe ? 'justify-end' : ''}`}>
+                                         <span className="font-bold text-xs">{msg.userName}</span>
+                                     </div>
+                                     <div className={`p-3 rounded-2xl text-sm shadow-sm ${isMe ? 'bg-black text-white rounded-br-none' : 'bg-white text-black rounded-bl-none border border-slate-200'}`}>
+                                         {msg.text}
+                                     </div>
+                                 </div>
                              </div>
-                             <p className="text-sm bg-white p-3 rounded-tr-xl rounded-b-xl shadow-sm mt-1">
-                                 Welcome to the {activeChannel?.name} channel! Be respectful and helpful.
-                             </p>
-                         </div>
-                     </div>
+                         )
+                     })}
                  </div>
 
                  <div className="p-4 bg-white border-t border-slate-100 flex gap-2">
                      <Input 
-                        placeholder={`Message #${activeChannel?.name}`} 
+                        placeholder={`Message #${activeChannel?.name} or type /agent [question]`} 
                         value={input} 
                         onChange={e => setInput(e.target.value)} 
                         onKeyDown={e => e.key === 'Enter' && sendMessage()}
@@ -573,7 +645,7 @@ const AICoachPage = () => {
                  <div className="w-16 h-16 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
                      <SparklesIcon className="w-8 h-8 text-white" />
                  </div>
-                 <h1 className="text-2xl font-black">Mwalimu AI Business Coach</h1>
+                 <h1 className="text-2xl font-black">Mwalimu Business Coach</h1>
                  <p className="text-slate-500">Expert advice for the African market.</p>
              </div>
 
@@ -1162,8 +1234,8 @@ const AuthModal = ({ isOpen, onClose, mode, setMode }: { isOpen: boolean; onClos
             if (success) { notify("Login Successful", "SUCCESS"); onClose(); }
             else notify('Invalid credentials', "ERROR");
         } else {
-             const finalRole = (formData.email === 'admin@kashsight.learn') ? 'ADMIN' : formData.role;
-             register(formData.username, formData.name, formData.email, formData.password, formData.phone, finalRole);
+             // Default role is LEARNER, but service handles Admin pattern check
+             register(formData.username, formData.name, formData.email, formData.password, formData.phone, 'LEARNER');
              notify("Account Created Successfully", "SUCCESS");
              onClose();
         }
@@ -1189,7 +1261,6 @@ const AuthModal = ({ isOpen, onClose, mode, setMode }: { isOpen: boolean; onClos
                            <Input placeholder="Username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} required />
                            <Input placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                            <Input placeholder="WhatsApp Number" type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
-                           {/* Removed Role Selection: Defaulting to LEARNER unless Admin pattern */}
                         </>
                     )}
                     <Input placeholder="Email Address" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />

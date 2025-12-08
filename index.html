@@ -3,52 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KashSight - P2P Lending</title>
-    <style>
-      #global-error-display {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        padding: 20px;
-        background-color: #fee2e2;
-        color: #991b1b;
-        z-index: 99999;
-        font-family: monospace;
-        border-bottom: 2px solid #ef4444;
-      }
-    </style>
-    <script>
-      // 1. Global Error Handler: Catches errors before React mounts to prevent "White Screen of Death"
-      window.addEventListener('error', function(event) {
-        var display = document.getElementById('global-error-display');
-        if (display) {
-          display.style.display = 'block';
-          display.innerText = 'System Error: ' + event.message;
-        }
-        console.error("Global Error Caught:", event.error);
-      });
-
-      // 2. Process Polyfill: Essential for libraries expecting Node.js environment
-      window.process = window.process || {};
-      window.process.env = window.process.env || {};
-      window.process.env.NODE_ENV = window.process.env.NODE_ENV || 'production';
-      window.process.env.API_KEY = window.process.env.API_KEY || ''; 
-    </script>
+    <title>KashSight - Pan-African Learning</title>
+    <!-- Tailwind CSS (CDN for simplicity in this setup, usually build process handles this but this works fine) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              'spin-slow': 'spin 3s linear infinite',
+            }
+          }
+        }
       }
     </script>
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Google Fonts -->
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
       }
-      /* Custom scrollbar for chat */
       .scrollbar-hide::-webkit-scrollbar {
           display: none;
       }
@@ -60,27 +40,21 @@
   <script type="importmap">
 {
   "imports": {
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.0",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.1/client",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "@heroicons/react/24/outline": "https://aistudiocdn.com/@heroicons/react@^2.2.0/24/outline",
-    "@heroicons/react/24/solid": "https://aistudiocdn.com/@heroicons/react@^2.2.0/24/solid",
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
-    "firebase/database": "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
     "@heroicons/react/": "https://aistudiocdn.com/@heroicons/react@^2.2.0/"
   }
 }
 </script>
 </head>
-  <body class="bg-white text-gray-900">
-    <div id="global-error-display"></div>
+  <body class="bg-white text-black">
     <div id="root"></div>
-    <!-- Changed to relative path to support subdirectory deployment on GitHub Pages -->
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

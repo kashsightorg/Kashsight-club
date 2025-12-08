@@ -173,12 +173,7 @@ const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 Hours in MS
 
 export const AuthService = {
     login: (users: User[], email: string, password: string): User | null => {
-        // Master Admin Override
-        if (email === 'admin@kashsight.learn' && password === 'admin1') {
-            const admin = users.find(u => u.email === 'admin@kashsight.learn') || users.find(u => u.role === 'ADMIN');
-            if (admin) return admin;
-        }
-
+        // Updated: Removed Master Admin Override. Relies solely on database roles.
         const hash = btoa('salty_' + password);
         const user = users.find(u => u.email === email && u.passwordHash === hash) || null;
         if (user) {
